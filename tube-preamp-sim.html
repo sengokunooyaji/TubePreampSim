@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>真空管プリアンプ シミュレーター</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+/* Layout: test-bench page — control rack on the left, graph-paper instrument panes on the right; stacks on phones */
+:root {
+  --bg: #eef1ec; --panel: #fbfbf8; --ink: #1c2630; --muted: #5a6670; --line: #d9ded6;
+  --grid: #dde3da; --grid-strong: #b6c0b3; --accent: #b25d07; --accent-soft: #f6e6d2; --trace2: #2b5b88;
+  --ok: #2e7a4d; --warn: #a86a12; --crit: #b3261e; --ok-bg: #e2f1e7; --warn-bg: #f8ecd6; --crit-bg: #f8e1df;
+  --f-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10151a; --panel: #161d24; --ink: #e2e7ea; --muted: #94a1ac; --line: #26313b;
+  --grid: #1f2a33; --grid-strong: #34444f; --accent: #f0a23e; --accent-soft: #3a2a14; --trace2: #82b4e6;
+  --ok: #62c58e; --warn: #e6b24e; --crit: #f07d70; --ok-bg: #173226; --warn-bg: #352812; --crit-bg: #3a1c19; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #10151a; --panel: #161d24; --ink: #e2e7ea; --muted: #94a1ac; --line: #26313b;
+  --grid: #1f2a33; --grid-strong: #34444f; --accent: #f0a23e; --accent-soft: #3a2a14; --trace2: #82b4e6;
+  --ok: #62c58e; --warn: #e6b24e; --crit: #f07d70; --ok-bg: #173226; --warn-bg: #352812; --crit-bg: #3a1c19; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.6; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: grid; gap: 6px; margin-bottom: 22px; }
+.eyebrow { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+h1 { font-family: var(--f-display); font-weight: 900; font-size: clamp(24px, 3.6vw, 34px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h1 .tube { color: var(--accent); }
+.lede { color: var(--muted); max-width: 66ch; margin: 0; }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.rack { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 18px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 860px) { .rack { position: static; } }
+.group { display: grid; gap: 10px; }
+.group + .group { border-top: 1px dashed var(--line); padding-top: 16px; }
+.glabel { font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--grid-strong); border-radius: 7px; overflow: hidden; }
+.seg button { font: inherit; border: 0; background: transparent; color: var(--ink); padding: 8px 6px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); font-weight: 700; }
+.seg button:focus-visible, .tabs button:focus-visible, select:focus-visible, input:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.knob { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+.knob label { font-size: 13px; }
+.knob output { font-family: var(--f-mono); font-size: 12.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.knob input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.knob .hint { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+.tubesel { display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center; font-size: 13px; }
+select { font: inherit; font-family: var(--f-mono); font-size: 12.5px; background: var(--bg); color: var(--ink); border: 1px solid var(--grid-strong); border-radius: 6px; padding: 4px 6px; }
+
+.bench { display: grid; gap: 16px; min-width: 0; }
+.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ro { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
+.ro .k { font-size: 11.5px; color: var(--muted); }
+.ro .v { font-family: var(--f-mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ro .v small { font-size: 12px; color: var(--muted); margin-left: 2px; }
+
+.alert { border-radius: 8px; padding: 10px 14px; font-size: 13px; display: grid; gap: 4px; }
+.alert.warn { background: var(--warn-bg); color: var(--ink); border-left: 4px solid var(--warn); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grid-strong); overflow-x: auto; }
+.tabs button { font: inherit; font-family: var(--f-display); font-weight: 700; font-size: 13.5px; background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.pane h2 { font-family: var(--f-display); font-weight: 700; font-size: 15px; margin: 0; }
+.pane .sub { font-size: 12.5px; color: var(--muted); margin: -8px 0 0; }
+.chart { width: 100%; height: 300px; display: block; }
+.chart.small { height: 210px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+.legend i.dash { border-top-style: dashed; }
+
+.wfctl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+@media (max-width: 640px) { .wfctl { grid-template-columns: minmax(0, 1fr); } }
+.wfctl .knob { align-self: stretch; }
+.field { display: grid; gap: 4px; font-size: 13px; }
+.status { font-family: var(--f-mono); font-size: 12px; color: var(--muted); min-height: 1.4em; }
+.two { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px; }
+@media (max-width: 760px) { .two { grid-template-columns: minmax(0, 1fr); } }
+
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 640px; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th { font-weight: 700; color: var(--muted); font-size: 11.5px; letter-spacing: .03em; }
+td { font-family: var(--f-mono); font-size: 12.5px; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; font-family: var(--f-body); }
+.pill { display: inline-block; font-family: var(--f-body); font-size: 11.5px; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.crit { background: var(--crit-bg); color: var(--crit); }
+.rails { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+.rails b { font-family: var(--f-mono); color: var(--ink); font-weight: 500; }
+
+.notes { display: grid; gap: 14px; max-width: 72ch; }
+.notes h3 { font-family: var(--f-display); font-size: 14px; margin: 0 0 4px; }
+.notes ol, .notes ul { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.notes p { margin: 0; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; }
+.uncertain { color: var(--warn); font-weight: 700; }
+.btn { font: inherit; font-weight: 700; border: 1px solid var(--grid-strong); background: var(--bg); color: var(--ink); border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); min-width: 110px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.drop { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; border: 1.5px dashed var(--grid-strong); border-radius: 9px; padding: 14px; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.dropname { font-size: 13px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.player { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.seekwrap { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.seekwrap input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.seg.ab { max-width: 460px; }
+.meter { height: 12px; border-radius: 6px; background: var(--grid); overflow: hidden; }
+.meter .bar { height: 100%; width: 0; background: var(--ok); }
+.meter .bar.hot { background: var(--warn); }
+.meter .bar.clip { background: var(--crit); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">12AX7 × 6 段 ／ NF 型 RIAA ／ パッシブ・バクサンドール ／ 1 ch</div>
+    <h1>真空管プリアンプ <span class="tube">シミュレーター</span></h1>
+    <p class="lede">回路図から読み取った定数で、各段の動作点・周波数特性・波形と歪みを計算します。真空管は Koren モデル、計算は節点解析（直流・交流・過渡解析）です。</p>
+  </header>
+
+  <div class="layout">
+    <aside class="rack" aria-label="操作パネル">
+      <div class="group">
+        <div class="glabel">入力切替</div>
+        <div class="seg" role="group" aria-label="入力">
+          <button id="m-phono" aria-pressed="true">PHONO（MM）</button>
+          <button id="m-line" aria-pressed="false">LINE</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="glabel">つまみ</div>
+        <div class="knob"><label for="bass">BASS（B100K）</label><output id="o-bass"></output><input id="bass" type="range" min="0" max="10" step="0.1" value="5"></div>
+        <div class="knob"><label for="treble">TREBLE（B100K）</label><output id="o-treble"></output><input id="treble" type="range" min="0" max="10" step="0.1" value="5"></div>
+        <div class="knob"><label for="vol">VOLUME（B100K）</label><output id="o-vol"></output><input id="vol" type="range" min="0" max="10" step="0.1" value="7"></div>
+      </div>
+      <div class="group">
+        <div class="glabel">電源</div>
+        <div class="knob"><label for="bplus">B+（平滑後）</label><output id="o-bplus"></output><input id="bplus" type="range" min="120" max="320" step="5" value="180">
+          <span class="hint">回路図の外にあるため仮定値。200V 150µF から 180V を初期値にしています。</span></div>
+      </div>
+      <div class="group">
+        <div class="glabel">真空管</div>
+        <div class="tubesel">
+          <label for="t-ph">V1 フォノEQ</label><select id="t-ph"><option>12AX7</option><option>12AU7</option></select>
+          <label for="t-mid">V2 CF ＋ V3 増幅</label><select id="t-mid"><option>12AX7</option><option>12AU7</option></select>
+          <label for="t-out">V4 ＋ V5 出力段</label><select id="t-out"><option>12AX7</option><option>12AU7</option></select>
+        </div>
+      </div>
+    </aside>
+
+    <main class="bench">
+      <div class="readouts" id="readouts"></div>
+      <div id="alerts" class="alert warn" hidden></div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-freq" aria-selected="true" aria-controls="p-freq">周波数特性</button>
+        <button role="tab" id="tab-wave" aria-selected="false" aria-controls="p-wave">波形・歪み</button>
+        <button role="tab" id="tab-listen" aria-selected="false" aria-controls="p-listen">試聴</button>
+        <button role="tab" id="tab-op" aria-selected="false" aria-controls="p-op">動作点</button>
+        <button role="tab" id="tab-notes" aria-selected="false" aria-controls="p-notes">回路の読み取り</button>
+      </div>
+
+      <section id="p-freq" class="pane" role="tabpanel">
+        <h2 id="freq-title">入力 → 出力の周波数特性</h2>
+        <p class="sub" id="freq-sub"></p>
+        <canvas id="c-resp" class="chart" aria-label="周波数特性グラフ"></canvas>
+        <div class="legend" id="lg-resp"></div>
+        <h2>フォノイコライザーの RIAA 偏差</h2>
+        <p class="sub">フォノEQ出力（0.1µF の後）を 1kHz で 0dB に揃え、理想 RIAA 再生カーブ（3180 / 318 / 75µs）との差を表示。</p>
+        <canvas id="c-riaa" class="chart small" aria-label="RIAA偏差グラフ"></canvas>
+      </section>
+
+      <section id="p-wave" class="pane" role="tabpanel" hidden>
+        <div class="wfctl">
+          <div class="field"><label for="wf-f">試験周波数</label>
+            <select id="wf-f"><option value="20">20 Hz</option><option value="100">100 Hz</option><option value="1000" selected>1 kHz</option><option value="5000">5 kHz</option><option value="10000">10 kHz</option></select></div>
+          <div class="field"><label for="wf-p">観測点</label>
+            <select id="wf-p"><option value="ph_out">フォノEQ出力</option><option value="tin">トーン入力（V2 CF 後）</option><option value="p4">V3 プレート</option><option value="outA" selected>出力端子</option></select></div>
+          <div class="knob"><label for="wf-l">入力レベル</label><output id="o-wfl"></output><input id="wf-l" type="range" min="0" max="1000" step="1" value="400"></div>
+        </div>
+        <div class="status" id="wf-status" aria-live="polite"></div>
+        <div class="two">
+          <div style="display:grid;gap:8px;min-width:0">
+            <canvas id="c-wave" class="chart" aria-label="波形"></canvas>
+            <div class="legend"><span><i style="border-color:var(--accent)"></i>観測点（交流分）</span><span><i class="dash" style="border-color:var(--trace2)"></i>入力 × ゲイン（歪みのない形）</span></div>
+          </div>
+          <div style="display:grid;gap:8px;min-width:0">
+            <canvas id="c-harm" class="chart" aria-label="高調波スペクトル"></canvas>
+            <div class="legend"><span>基本波を 0dB とした 2〜10 次高調波</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="p-listen" class="pane" role="tabpanel" hidden>
+        <h2>PC の音源をアンプに通して聴く</h2>
+        <p class="sub" id="au-sub">左のつまみ・B+・真空管の変更は再生中もすぐ反映されます。</p>
+        <div class="drop" id="au-drop">
+          <input type="file" id="au-file" accept="audio/*,.wav,.mp3,.flac,.m4a,.aac,.ogg" hidden>
+          <button class="btn" id="au-pick">音源ファイルを選ぶ</button>
+          <span id="au-name" class="dropname">WAV・MP3・FLAC・M4A など。ここにドラッグ＆ドロップもできます。</span>
+        </div>
+        <div class="player">
+          <button class="btn primary" id="au-play" disabled>▶ 再生</button>
+          <div class="seekwrap"><input type="range" id="au-seek" min="0" max="1000" value="0" step="1" disabled aria-label="再生位置"><span class="mono" id="au-time">0:00 / 0:00</span></div>
+        </div>
+        <div class="seg ab" role="group" aria-label="比較">
+          <button id="ab-amp" aria-pressed="true">アンプを通す</button>
+          <button id="ab-raw" aria-pressed="false">原音（音量を揃えて比較）</button>
+        </div>
+        <div class="wfctl">
+          <div class="knob"><label for="au-ref" id="au-ref-label">0dBFS に相当する入力</label><output id="o-auref"></output><input id="au-ref" type="range" min="0" max="1000" step="1" value="500">
+            <span class="hint" id="au-ref-hint"></span></div>
+          <div class="knob"><label for="au-mon">モニター音量</label><output id="o-aumon"></output><input id="au-mon" type="range" min="0" max="100" step="1" value="50">
+            <span class="hint">スピーカー・ヘッドホンの音量です。アンプの計算には影響しません。</span></div>
+          <div class="field"><span>出力レベル</span>
+            <div class="meter"><div class="bar" id="au-meter"></div></div>
+            <span class="hint mono" id="au-peak">—</span></div>
+        </div>
+        <div class="status" id="au-status" aria-live="polite"></div>
+        <p class="sub" style="margin:0">周波数特性は回路の小信号解析をそのまま畳み込み、歪みは 1kHz の過渡解析から求めた入出力カーブで再現しています。PHONO を選ぶと、音源に RIAA 録音カーブをかけてからフォノ入力に入れる（レコード再生を模擬する）形になります。</p>
+      </section>
+
+      <section id="p-op" class="pane" role="tabpanel" hidden>
+        <h2>直流動作点</h2>
+        <div class="rails" id="rails"></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>段</th><th>役割</th><th>Vp</th><th>Vk</th><th>Vpk</th><th>Vgk</th><th>Ip mA</th><th>Pa mW</th><th>gm mA/V</th><th>rp kΩ</th><th>状態</th></tr></thead>
+          <tbody id="op-body"></tbody>
+        </table></div>
+        <p class="sub" style="margin:0">電圧は対アース。Pa はプレート損失（12AX7 最大 1W、12AU7 最大 2.75W）。グリッド電流は Vgk が正のときに流れます。</p>
+      </section>
+
+      <section id="p-notes" class="pane" role="tabpanel" hidden>
+        <div class="notes">
+          <div><h3>信号の流れ</h3>
+            <ol>
+              <li><b>フォノEQ（V1a・V1b）</b>：入力 47kΩ、プレート負荷 300kΩ × 2、カソード 2.2kΩ。出力から V1a カソードへ、0.1µF →（2.2MΩ ∥ 3000pF）→（100kΩ ∥ 820pF）の NF で RIAA 特性を作る。</li>
+              <li><b>入力切替</b> → 10kΩ／100kΩ → 0.1µF。</li>
+              <li><b>V2 カソードフォロワ</b>：カソード 220Ω ＋ 30kΩ、グリッドリーク 470kΩ を 220Ω と 30kΩ の間に戻すブートストラップ。1µF でトーンへ。</li>
+              <li><b>トーン（パッシブ・バクサンドール）</b>：BASS は 22kΩ・B100K・2.2kΩ と 0.022µF／0.22µF、TREBLE は 2200pF・B100K・0.022µF、両者を 2.2kΩ で合成。</li>
+              <li><b>VOLUME</b>（B100K）→ 0.1µF → 1kΩ → V3（プレート 33kΩ、カソード 1kΩ 無バイパス）。</li>
+              <li><b>出力段（V4・V5）</b>：V3 プレートから 3kΩ で V4 グリッドへ直結。V4 プレート 220Ω、V4 カソードの下に V5、V5 カソード 200Ω。</li>
+            </ol></div>
+          <div><h3>電源（片チャンネル分）</h3>
+            <p>B+ →（150µF）→ 1.5kΩ → V3・出力段 → 100kΩ（22µF）→ V2 → 22kΩ（22µF）→ フォノEQ。</p></div>
+          <div><h3>読み取りが不確かな点</h3>
+            <ul>
+              <li><span class="uncertain">出力段の接続</span>：写真の解像度では「250V 0.1µF」が V4 プレートと V5 グリッドの間（ホワイト・カソードフォロワ）と読みました。この読みのまま 12AX7 を使うと V4 にグリッド電流が流れます。実機の配線か球の型番を確認してください。</li>
+              <li><span class="uncertain">B+ 電圧</span>：電源部が写真の外です。平滑コンデンサの耐圧 200V から 180V を仮定しています。</li>
+              <li><span class="uncertain">右端の 150µF</span>：出力から先が切れているため、150µF ＋ 100kΩ の別出力として扱っています。</li>
+              <li><span class="uncertain">入力抵抗</span>：左端が切れていますが、図中のメモ「100k 47k」から 47kΩ としました。</li>
+            </ul></div>
+          <div><h3>計算モデル</h3>
+            <p>三極管は Koren モデル（12AX7: µ=100、12AU7: µ=21.5）、グリッド電流と電極間容量を含みます。周波数特性は動作点での小信号解析、波形は台形積分の過渡解析で、交流定常状態から始めて最後の 4 周期をフーリエ解析しています。信号源インピーダンス、ヒーター、ハムは含みません。</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+// ===== Tube preamp circuit engine (MNA, Koren 12AX7, DC / AC / transient) =====
+const Engine = (() => {
+  const TUBES = {
+    '12AX7': { mu: 100, ex: 1.4, kg1: 1060, kp: 600, kvb: 300, cgk: 2.3e-12, cgp: 2.4e-12, cpk: 0.9e-12 },
+    '12AU7': { mu: 21.5, ex: 1.3, kg1: 1180, kp: 84, kvb: 300, cgk: 2.3e-12, cgp: 2.2e-12, cpk: 1.0e-12 },
+  };
+  const sp = x => (x > 30 ? x : Math.log1p(Math.exp(x)));
+
+  function ip(t, vgk, vpk) {
+    if (vpk <= 0) return 0;
+    const e1 = (vpk / t.kp) * sp(t.kp * (1 / t.mu + vgk / Math.sqrt(t.kvb + vpk * vpk)));
+    return e1 > 0 ? (2 * Math.pow(e1, t.ex)) / t.kg1 : 0;
+  }
+  const ig = vgk => (vgk > 0 ? 5e-4 * Math.pow(vgk, 1.5) : 0);
+
+  // ---------- netlist ----------
+  // p: { mode:'phono'|'line', bplus, bass, treble, vol }  (pots 0..1)
+  function build(p) {
+    const nodes = { 0: 0 }; let nn = 0;
+    const N = name => { if (name === '0') return 0; if (!(name in nodes)) nodes[name] = ++nn; return nodes[name]; };
+    const R = [], C = [], V = [], T = [];
+    const r = (a, b, v) => R.push([N(a), N(b), Math.max(v, 50)]);
+    const c = (a, b, v) => C.push([N(a), N(b), v]);
+    const tube = (name, g, pl, k) => T.push({ name, g: N(g), p: N(pl), k: N(k), t: TUBES[(p.tubes && p.tubes[name]) || '12AX7'] });
+    const pot = (top, w, bot, pos, Rt = 100e3) => { r(top, w, Rt * (1 - pos)); r(w, bot, Rt * pos); };
+
+    // power supply (CRC: 150uF - 1.5k - 150uF), decoupling 100k / 22k with 22uF
+    V.push({ n: N('b0'), v: p.bplus, ac: 0, name: 'B+' });
+    r('b0', 'b1', 1.5e3); c('b1', '0', 150e-6);
+    r('b1', 'b2', 100e3); c('b2', '0', 22e-6);
+    r('b2', 'b3', 22e3);  c('b3', '0', 22e-6);
+
+    // phono EQ (NF type): V1a / V1b
+    const vin = { n: N(p.mode === 'phono' ? 'in_ph' : 'in_line'), v: 0, ac: 1, name: 'IN' };
+    V.push(vin);
+    r('in_ph', '0', 47e3);
+    tube('V1a', 'in_ph', 'p1', 'k1'); r('b3', 'p1', 300e3); r('k1', '0', 2.2e3);
+    c('p1', 'g2', 0.1e-6); r('g2', '0', 470e3);
+    tube('V1b', 'g2', 'p2', 'k2'); r('b3', 'p2', 300e3); r('k2', '0', 2.2e3);
+    c('p2', 'ph_out', 0.1e-6);
+    c('ph_out', 'nf_r', 0.1e-6);
+    r('nf_r', 'nf_m', 2.2e6); c('nf_r', 'nf_m', 3000e-12);
+    r('nf_m', 'k1', 100e3);   c('nf_m', 'k1', 820e-12);
+
+    // selector
+    if (p.mode === 'phono') r('ph_out', 'sel', 50); else r('in_line', 'sel', 50);
+    r('sel', 'n10', 10e3); r('n10', '0', 100e3);
+    c('n10', 'g3', 0.1e-6);
+
+    // V2 cathode follower (bootstrapped grid leak)
+    tube('V2', 'g3', 'b2', 'k3'); r('k3', 'k3b', 220); r('k3b', '0', 30e3); r('g3', 'k3b', 470e3);
+    c('k3b', 'tin', 1e-6);
+
+    // passive Baxandall tone control
+    r('tin', 'ba', 22e3); pot('ba', 'bw', 'bb', p.bass);
+    c('ba', 'bw', 0.022e-6); c('bw', 'bb', 0.22e-6); r('bb', '0', 2.2e3);
+    r('bw', 'tout', 2.2e3);
+    c('tin', 'ta', 2200e-12); pot('ta', 'tout', 'tb', p.treble); c('tb', '0', 0.022e-6);
+
+    // volume
+    pot('tout', 'vw', '0', p.vol);
+    c('vw', 'n11', 0.1e-6); r('n11', 'g4', 1e3); r('g4', '0', 1e6);
+
+    // V3 amplifier
+    tube('V3', 'g4', 'p4', 'k4'); r('b1', 'p4', 33e3); r('k4', '0', 1e3);
+    r('p4', 'g5', 3e3);
+
+    // output: V4 / V5 (white cathode follower reading)
+    tube('V4', 'g5', 'p5', 'k5'); r('b1', 'p5', 220);
+    tube('V5', 'g6', 'k5', 'k6'); r('k6', '0', 200); r('g6', '0', 1e6);
+    c('p5', 'g6', 0.1e-6);
+    c('k5', 'outA', 0.1e-6); r('outA', '0', 470e3);
+    c('k5', 'outB', 150e-6); r('outB', '0', 100e3);
+
+    // interelectrode capacitances
+    for (const t of T) { C.push([t.g, t.k, t.t.cgk]); C.push([t.g, t.p, t.t.cgp]); C.push([t.p, t.k, t.t.cpk]); }
+    return { nodes, nn, R, C, V, T, vin };
+  }
+
+  // ---------- linear solvers ----------
+  function solve(A, b, n) {
+    for (let i = 0; i < n; i++) {
+      let m = i, mv = Math.abs(A[i][i]);
+      for (let k = i + 1; k < n; k++) { const v = Math.abs(A[k][i]); if (v > mv) { mv = v; m = k; } }
+      if (m !== i) { const t = A[i]; A[i] = A[m]; A[m] = t; const tb = b[i]; b[i] = b[m]; b[m] = tb; }
+      const piv = A[i][i] || 1e-30, Ai = A[i];
+      for (let k = i + 1; k < n; k++) {
+        const Ak = A[k], f = Ak[i] / piv; if (f === 0) continue;
+        for (let j = i; j < n; j++) Ak[j] -= f * Ai[j];
+        b[k] -= f * b[i];
+      }
+    }
+    const x = new Float64Array(n);
+    for (let i = n - 1; i >= 0; i--) { let s = b[i]; const Ai = A[i]; for (let j = i + 1; j < n; j++) s -= Ai[j] * x[j]; x[i] = s / (Ai[i] || 1e-30); }
+    return x;
+  }
+  function csolve(Ar, Ai, br, bi, n) {
+    for (let i = 0; i < n; i++) {
+      let m = i, mv = Ar[i][i] ** 2 + Ai[i][i] ** 2;
+      for (let k = i + 1; k < n; k++) { const v = Ar[k][i] ** 2 + Ai[k][i] ** 2; if (v > mv) { mv = v; m = k; } }
+      if (m !== i) { [Ar[i], Ar[m]] = [Ar[m], Ar[i]]; [Ai[i], Ai[m]] = [Ai[m], Ai[i]]; [br[i], br[m]] = [br[m], br[i]]; [bi[i], bi[m]] = [bi[m], bi[i]]; }
+      const pr = Ar[i][i], pi = Ai[i][i], d = pr * pr + pi * pi || 1e-60;
+      for (let k = i + 1; k < n; k++) {
+        const ar = Ar[k][i], ai = Ai[k][i]; if (ar === 0 && ai === 0) continue;
+        const fr = (ar * pr + ai * pi) / d, fi = (ai * pr - ar * pi) / d;
+        for (let j = i; j < n; j++) { const xr = Ar[i][j], xi = Ai[i][j]; Ar[k][j] -= fr * xr - fi * xi; Ai[k][j] -= fr * xi + fi * xr; }
+        const xr = br[i], xi = bi[i]; br[k] -= fr * xr - fi * xi; bi[k] -= fr * xi + fi * xr;
+      }
+    }
+    const xr = new Float64Array(n), xi = new Float64Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      let sr = br[i], si = bi[i];
+      for (let j = i + 1; j < n; j++) { sr -= Ar[i][j] * xr[j] - Ai[i][j] * xi[j]; si -= Ar[i][j] * xi[j] + Ai[i][j] * xr[j]; }
+      const pr = Ar[i][i], pi = Ai[i][i], d = pr * pr + pi * pi || 1e-60;
+      xr[i] = (sr * pr + si * pi) / d; xi[i] = (si * pr - sr * pi) / d;
+    }
+    return [xr, xi];
+  }
+
+  const zeros = n => Array.from({ length: n }, () => new Float64Array(n));
+  const GMIN = 1e-9;
+
+  // tube Newton stamps; v indexed by node (v[0]=0)
+  function stampTubes(ckt, A, b, v, sz) {
+    const add = (r, c, g) => { if (r && c) A[r - 1][c - 1] += g; };
+    const rhs = (r, x) => { if (r) b[r - 1] += x; };
+    const ops = [];
+    for (const t of ckt.T) {
+      const vg = v[t.g], vp = v[t.p], vk = v[t.k];
+      const vgk = vg - vk, vpk = vp - vk, d = 1e-4;
+      const I = ip(t.t, vgk, vpk);
+      const gm = (ip(t.t, vgk + d, vpk) - ip(t.t, vgk - d, vpk)) / (2 * d);
+      const gp = (ip(t.t, vgk, vpk + d) - ip(t.t, vgk, vpk - d)) / (2 * d) + 1e-12;
+      // plate current p -> k : i = I + gm*(dvgk) + gp*(dvpk)
+      const Ieq = I - gm * vgk - gp * vpk;
+      for (const [row, s] of [[t.p, 1], [t.k, -1]]) {
+        add(row, t.g, s * gm); add(row, t.k, -s * (gm + gp)); add(row, t.p, s * gp); rhs(row, -s * Ieq);
+      }
+      const Ig = ig(vgk), gg = vgk > 0 ? 7.5e-4 * Math.sqrt(vgk) : 0;
+      const Igeq = Ig - gg * vgk;
+      for (const [row, s] of [[t.g, 1], [t.k, -1]]) { add(row, t.g, s * gg); add(row, t.k, -s * gg); rhs(row, -s * Igeq); }
+      ops.push({ name: t.name, vg, vp, vk, vgk, vpk, ip: I, ig: Ig, gm, rp: 1 / gp });
+    }
+    return ops;
+  }
+
+  function baseMatrix(ckt, capG) {
+    const n = ckt.nn, sz = n + ckt.V.length, A = zeros(sz);
+    const add = (r, c, g) => { if (r && c) A[r - 1][c - 1] += g; };
+    const G = (a, bb, g) => { add(a, a, g); add(bb, bb, g); add(a, bb, -g); add(bb, a, -g); };
+    for (const [a, bb, rv] of ckt.R) G(a, bb, 1 / rv);
+    if (capG) for (const [a, bb, cv] of ckt.C) G(a, bb, cv * capG);
+    for (let i = 1; i <= n; i++) A[i - 1][i - 1] += GMIN;
+    ckt.V.forEach((s, k) => { A[n + k][s.n - 1] = 1; A[s.n - 1][n + k] = 1; });
+    return { A, sz, n };
+  }
+  const copyM = M => M.map(r => Float64Array.from(r));
+
+  // ---------- DC operating point ----------
+  function dc(ckt) {
+    const { A: A0, sz, n } = baseMatrix(ckt, 0);
+    let v = new Float64Array(n + 1);
+    let ops = [];
+    for (let step = 1; step <= 12; step++) {
+      const scale = step / 12;
+      for (let it = 0; it < 150; it++) {
+        const A = copyM(A0), b = new Float64Array(sz);
+        ckt.V.forEach((s, k) => { b[n + k] = s.v * scale; });
+        ops = stampTubes(ckt, A, b, v, sz);
+        const x = solve(A, b, sz);
+        let maxd = 0;
+        for (let i = 1; i <= n; i++) {
+          let d = x[i - 1] - v[i]; if (d > 8) d = 8; if (d < -8) d = -8;
+          v[i] += d; maxd = Math.max(maxd, Math.abs(d));
+        }
+        if (maxd < 1e-7) break;
+      }
+    }
+    const A = copyM(A0), b = new Float64Array(sz);
+    ckt.V.forEach((s, k) => { b[n + k] = s.v; });
+    ops = stampTubes(ckt, A, b, v, sz);
+    return { v, ops };
+  }
+
+  // ---------- AC small signal ----------
+  function ac(ckt, op, freqs, probes) {
+    const n = ckt.nn, sz = n + ckt.V.length;
+    const { A: G0 } = baseMatrix(ckt, 0);
+    // add linearized tubes
+    const add = (r, c, g) => { if (r && c) G0[r - 1][c - 1] += g; };
+    ckt.T.forEach((t, i) => {
+      const o = op.ops[i], gp = 1 / o.rp, gm = o.gm, gg = o.vgk > 0 ? 7.5e-4 * Math.sqrt(o.vgk) : 0;
+      for (const [row, s] of [[t.p, 1], [t.k, -1]]) { add(row, t.g, s * gm); add(row, t.k, -s * (gm + gp)); add(row, t.p, s * gp); }
+      for (const [row, s] of [[t.g, 1], [t.k, -1]]) { add(row, t.g, s * gg); add(row, t.k, -s * gg); }
+    });
+    const out = {}; for (const p of probes) out[p] = [];
+    for (const f of freqs) {
+      const w = 2 * Math.PI * f, Ar = copyM(G0), Ai = zeros(sz);
+      const addi = (r, c, g) => { if (r && c) Ai[r - 1][c - 1] += g; };
+      for (const [a, bb, cv] of ckt.C) { const y = w * cv; addi(a, a, y); addi(bb, bb, y); addi(a, bb, -y); addi(bb, a, -y); }
+      const br = new Float64Array(sz), bi = new Float64Array(sz);
+      ckt.V.forEach((s, k) => { br[n + k] = s.ac; });
+      const [xr, xi] = csolve(Ar, Ai, br, bi, sz);
+      for (const p of probes) { const id = ckt.nodes[p]; out[p].push(id ? [xr[id - 1], xi[id - 1]] : [0, 0]); }
+    }
+    return out;
+  }
+
+  // ---------- transient (trapezoidal) ----------
+  function tran(ckt, op, { freq, amp, periods = 8, spp = 200, probes = ['outA'] }) {
+    const n = ckt.nn, sz = n + ckt.V.length, h = 1 / (freq * spp), steps = periods * spp;
+    const geqs = ckt.C.map(([, , cv]) => (2 * cv) / h);
+    const { A: A0 } = baseMatrix(ckt, 0);
+    const add = (r, c, g) => { if (r && c) A0[r - 1][c - 1] += g; };
+    ckt.C.forEach(([a, bb], i) => { const g = geqs[i]; add(a, a, g); add(bb, bb, g); add(a, bb, -g); add(bb, a, -g); });
+    let v = Float64Array.from(op.v);
+    // start from the linear steady state so only nonlinear effects remain
+    const allNodes = Object.keys(ckt.nodes).filter(k => k !== '0');
+    const ss = ac(ckt, op, [freq], allNodes);
+    const ph = {}; allNodes.forEach(k => { ph[ckt.nodes[k]] = ss[k][0]; }); ph[0] = [0, 0];
+    for (const k of allNodes) { const id = ckt.nodes[k]; v[id] += amp * ph[id][1]; }
+    const w0 = 2 * Math.PI * freq;
+    const vc = ckt.C.map(([a, bb]) => v[a] - v[bb]);
+    const icap = ckt.C.map(([a, bb, cv]) => cv * w0 * amp * (ph[a][0] - ph[bb][0]));
+    const iid = ckt.vin.n;
+    const waves = {}; probes.forEach(k => { waves[k] = new Float64Array(steps); }); const inW = new Float64Array(steps);
+    const vinIdx = ckt.V.indexOf(ckt.vin);
+    for (let s = 0; s < steps; s++) {
+      const t = (s + 1) * h, vs = amp * Math.sin(2 * Math.PI * freq * t);
+      const hist = ckt.C.map((_, i) => geqs[i] * vc[i] + icap[i]);
+      for (let it = 0; it < 40; it++) {
+        const A = copyM(A0), b = new Float64Array(sz);
+        ckt.C.forEach(([a, bb], i) => { if (a) b[a - 1] += hist[i]; if (bb) b[bb - 1] -= hist[i]; });
+        ckt.V.forEach((src, k) => { b[n + k] = k === vinIdx ? vs : src.v; });
+        stampTubes(ckt, A, b, v, sz);
+        const x = solve(A, b, sz);
+        let maxd = 0;
+        for (let i = 1; i <= n; i++) { let d = x[i - 1] - v[i]; if (d > 20) d = 20; if (d < -20) d = -20; v[i] += d; maxd = Math.max(maxd, Math.abs(d)); }
+        if (maxd < 1e-6) break;
+      }
+      ckt.C.forEach(([a, bb], i) => { const nv = v[a] - v[bb]; icap[i] = geqs[i] * nv - hist[i]; vc[i] = nv; });
+      for (const k of probes) waves[k][s] = v[ckt.nodes[k]] || 0; inW[s] = v[iid];
+    }
+    return { waves, inW, h, spp, periods };
+  }
+
+  function harmonics(w, spp, nper, nh = 10) {
+    const N = spp * nper, start = w.length - N; let seg = w.slice(start);
+    // remove mean and linear drift (slow settling of large coupling caps)
+    // drift from whole-period means (a sine averages to zero over each period)
+    const pm = k => { let m = 0; for (let i = k * spp; i < (k + 1) * spp; i++) m += seg[i]; return m / spp; };
+    const slope = nper > 1 ? (pm(nper - 1) - pm(0)) / ((nper - 1) * spp) : 0, mid = (N - 1) / 2;
+    seg = seg.map((x, i) => x - slope * (i - mid));
+    let mean = 0; for (const x of seg) mean += x; mean /= N;
+    const amps = [];
+    for (let k = 1; k <= nh; k++) {
+      let re = 0, im = 0;
+      for (let i = 0; i < N; i++) { const ph = (2 * Math.PI * k * nper * i) / N; re += (seg[i] - mean) * Math.cos(ph); im += (seg[i] - mean) * Math.sin(ph); }
+      amps.push((2 * Math.hypot(re, im)) / N);
+    }
+    const thd = Math.sqrt(amps.slice(1).reduce((s, a) => s + a * a, 0)) / amps[0];
+    return { amps, thd, mean };
+  }
+
+  return { build, dc, ac, tran, harmonics, ip };
+})();
+
+
+</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const S = { mode: 'phono', bass: .5, treble: .5, vol: .7, bplus: 180, tph: '12AX7', tmid: '12AX7', tout: '12AX7', wfF: 1000, wfP: 'outA', wfL: 400 };
+  const tubesOf = () => ({ V1a: S.tph, V1b: S.tph, V2: S.tmid, V3: S.tmid, V4: S.tout, V5: S.tout });
+  const params = mode => ({ mode, bplus: S.bplus, bass: S.bass, treble: S.treble, vol: S.vol, tubes: tubesOf() });
+  const FREQS = Array.from({ length: 141 }, (_, i) => 10 * Math.pow(10, i / 35)); // 10 Hz .. 100 kHz
+  const db = c => 20 * Math.log10(Math.hypot(c[0], c[1]) + 1e-30);
+  const riaa = f => { const w = 2 * Math.PI * f; return 20 * Math.log10(Math.hypot(1, w * 318e-6) / (Math.hypot(1, w * 3180e-6) * Math.hypot(1, w * 75e-6))); };
+  const ROLE = { V1a: 'フォノEQ 初段', V1b: 'フォノEQ 2段目', V2: 'カソードフォロワ', V3: '電圧増幅', V4: '出力 上側', V5: '出力 下側' };
+  const PAMAX = { '12AX7': 1, '12AU7': 2.75 };
+  let last = {};
+
+  // ---------- level slider (log) ----------
+  const lvl = () => { const t = S.wfL / 1000; return S.mode === 'phono' ? 0.5e-3 * Math.pow(400, t) : 0.02 * Math.pow(500, t); }; // phono 0.5–200 mV, line 20 mV–10 V
+  const fmtV = v => v < 1 ? (v * 1000).toFixed(v < 0.01 ? 2 : 1) + ' mV' : v.toFixed(2) + ' V';
+  const fmtF = f => f >= 1000 ? (f / 1000) + 'k' : String(f);
+
+  // ---------- plotting ----------
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function setup(cv) {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    cv.width = Math.max(1, Math.round(r.width * d)); cv.height = Math.max(1, Math.round(r.height * d));
+    const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return [g, r.width, r.height];
+  }
+  function plot(cv, o) {
+    const [g, W, H] = setup(cv), m = { l: 46, r: 12, t: 10, b: 28 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const X = o.xlog ? x => m.l + (Math.log10(x) - Math.log10(o.xmin)) / (Math.log10(o.xmax) - Math.log10(o.xmin)) * pw
+                     : x => m.l + (x - o.xmin) / (o.xmax - o.xmin) * pw;
+    const Y = y => m.t + (1 - (y - o.ymin) / (o.ymax - o.ymin)) * ph;
+    g.clearRect(0, 0, W, H);
+    g.font = '11px "IBM Plex Mono", monospace'; g.lineWidth = 1;
+    if (o.xminor) { g.strokeStyle = css('--grid'); for (const x of o.xminor) { g.beginPath(); g.moveTo(X(x) + .5, m.t); g.lineTo(X(x) + .5, m.t + ph); g.stroke(); } }
+    g.fillStyle = css('--muted'); g.textAlign = 'center'; g.textBaseline = 'top';
+    for (const x of o.xticks) { g.strokeStyle = css('--grid-strong'); g.beginPath(); g.moveTo(X(x) + .5, m.t); g.lineTo(X(x) + .5, m.t + ph); g.stroke(); g.fillText(o.xfmt(x), X(x), m.t + ph + 7); }
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    for (const y of o.yticks) { g.strokeStyle = y === 0 && o.zero ? css('--muted') : css('--grid-strong'); g.beginPath(); g.moveTo(m.l, Y(y) + .5); g.lineTo(m.l + pw, Y(y) + .5); g.stroke(); g.fillText(o.yfmt(y), m.l - 6, Y(y)); }
+    g.save(); g.beginPath(); g.rect(m.l, m.t, pw, ph); g.clip();
+    for (const s of o.series) {
+      if (s.bars) { g.fillStyle = s.color; for (const [x, y] of s.data) { const bw = pw / (o.xmax - o.xmin) * .55; g.fillRect(X(x) - bw / 2, Y(y), bw, Y(o.ymin) - Y(y)); } continue; }
+      g.strokeStyle = s.color; g.lineWidth = s.width || 2; g.setLineDash(s.dash || []); g.beginPath();
+      s.data.forEach(([x, y], i) => { const yy = Y(Math.max(o.ymin - 50, Math.min(o.ymax + 50, y))); i ? g.lineTo(X(x), yy) : g.moveTo(X(x), yy); }); g.stroke(); g.setLineDash([]);
+      if (s.dots) { g.fillStyle = s.color; for (const [x, y] of s.dots) { g.beginPath(); g.arc(X(x), Y(y), 3.5, 0, 7); g.fill(); g.fillStyle = css('--ink'); g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(y.toFixed(1), X(x), Y(y) - 6); g.fillStyle = s.color; } }
+    }
+    g.restore();
+    if (o.ylabel) { g.save(); g.fillStyle = css('--muted'); g.translate(11, m.t + ph / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.ylabel, 0, 0); g.restore(); }
+  }
+  const DEC = [10, 100, 1000, 10000, 100000], decFmt = x => x >= 1000 ? (x / 1000) + 'k' : String(x);
+  const MINOR = []; for (const d of [10, 100, 1000, 10000]) for (let k = 2; k <= 9; k++) MINOR.push(d * k);
+
+  // ---------- AC + DC ----------
+  function computeAC() {
+    const ckt = Engine.build(params(S.mode)), op = Engine.dc(ckt);
+    const r = Engine.ac(ckt, op, FREQS, ['outA']);
+    const ckp = S.mode === 'phono' ? ckt : Engine.build(params('phono')), opp = S.mode === 'phono' ? op : Engine.dc(ckp);
+    const rp = Engine.ac(ckp, opp, FREQS, ['ph_out']);
+    const resp = r.outA.map(db);
+    const i1k = FREQS.findIndex(f => f >= 1000) , ph = rp.ph_out.map(db), ref = ph[i1k] - riaa(1000);
+    const dev = FREQS.map((f, i) => ph[i] - ref - riaa(f));
+    last = { op, resp, dev, ph1k: ph[i1k], g1k: resp[i1k], i1k };
+    drawFreq(); drawOp(); drawReadouts();
+  }
+  const at = (arr, f) => { let i = FREQS.findIndex(x => x >= f); if (i < 0) i = FREQS.length - 1; return arr[i]; };
+
+  function drawFreq() {
+    const { resp, dev } = last;
+    const band = resp.filter((_, i) => FREQS[i] >= 10);
+    const ymax = Math.ceil((Math.max(...band) + 3) / 10) * 10, ymin = Math.max(ymax - 80, Math.floor((Math.min(...band) - 3) / 10) * 10);
+    const yt = []; for (let y = ymin; y <= ymax; y += 10) yt.push(y);
+    $('freq-title').textContent = S.mode === 'phono' ? 'PHONO 入力 → 出力の周波数特性' : 'LINE 入力 → 出力の周波数特性';
+    $('freq-sub').textContent = S.mode === 'phono' ? 'RIAA 補正・トーン・音量をすべて含む総合特性（出力端子 0.1µF＋470kΩ）。' : 'トーン・音量を含む特性（出力端子 0.1µF＋470kΩ）。BASS・TREBLE を動かすと曲線が変わります。';
+    plot($('c-resp'), { xlog: true, xmin: 10, xmax: 100000, ymin, ymax, xticks: DEC, xminor: MINOR, yticks: yt, xfmt: decFmt, yfmt: y => y + '', ylabel: 'dB',
+      series: [{ data: FREQS.map((f, i) => [f, resp[i]]), color: css('--accent'), width: 2.5, dots: [100, 1000, 10000].map(f => [f, at(resp, f)]) }] });
+    $('lg-resp').innerHTML = `<span><i style="border-color:${css('--accent')}"></i>電圧ゲイン（数字は 100Hz・1kHz・10kHz の値）</span>`;
+    const inb = dev.filter((_, i) => FREQS[i] >= 20 && FREQS[i] <= 20000);
+    const lim = Math.max(2, Math.ceil(Math.max(...inb.map(Math.abs)) + .5));
+    const dt = []; for (let y = -lim; y <= lim; y += lim > 4 ? 2 : 1) dt.push(y);
+    plot($('c-riaa'), { xlog: true, xmin: 10, xmax: 100000, ymin: -lim, ymax: lim, xticks: DEC, xminor: MINOR, yticks: dt, zero: true, xfmt: decFmt, yfmt: y => (y > 0 ? '+' : '') + y, ylabel: 'dB',
+      series: [{ data: FREQS.map((f, i) => [f, dev[i]]), color: css('--trace2'), width: 2.5, dots: [20, 100, 10000, 20000].map(f => [f, at(dev, f)]) }] });
+  }
+
+  function status(o, t) {
+    const pa = o.vpk * o.ip, tags = [];
+    if (o.ig > 1e-6) tags.push(['warn', `グリッド電流 ${(o.ig * 1e3).toFixed(2)}mA`]);
+    if (pa > PAMAX[t]) tags.push(['crit', '損失超過']);
+    if (o.vpk < 30) tags.push(['warn', 'Vpk 低い']);
+    if (o.ip < 0.1e-3) tags.push(['warn', '電流少']);
+    return tags.length ? tags : [['ok', '正常']];
+  }
+  function drawOp() {
+    const tubes = tubesOf(), v = last.op;
+    $('op-body').innerHTML = last.op.ops.map(o => {
+      const t = tubes[o.name];
+      return `<tr><td><b>${o.name}</b> <span class="mono" style="color:var(--muted)">${t}</span></td><td>${ROLE[o.name]}</td><td>${o.vp.toFixed(1)}</td><td>${o.vk.toFixed(2)}</td><td>${o.vpk.toFixed(1)}</td><td>${o.vgk.toFixed(2)}</td><td>${(o.ip * 1e3).toFixed(2)}</td><td>${(o.vpk * o.ip * 1e3).toFixed(0)}</td><td>${(o.gm * 1e3).toFixed(2)}</td><td>${(o.rp / 1e3).toFixed(1)}</td><td>${status(o, t).map(([c, s]) => `<span class="pill ${c}">${s}</span>`).join(' ')}</td></tr>`;
+    }).join('');
+    const ckt = Engine.build(params(S.mode)), nv = k => v.v[ckt.nodes[k]];
+    $('rails').innerHTML = `<span>B+ <b>${S.bplus.toFixed(0)} V</b></span><span>1.5kΩ 後（V3・出力段）<b>${nv('b1').toFixed(1)} V</b></span><span>100kΩ 後（V2）<b>${nv('b2').toFixed(1)} V</b></span><span>22kΩ 後（フォノEQ）<b>${nv('b3').toFixed(1)} V</b></span>`;
+    const warns = last.op.ops.flatMap(o => status(o, tubes[o.name]).filter(s => s[0] !== 'ok').map(s => `${o.name}（${ROLE[o.name]}）：${s[1]}`));
+    const al = $('alerts');
+    al.hidden = !warns.length;
+    al.innerHTML = warns.length ? `<b>動作点の注意</b><span>${warns.join('　／　')}</span><span style="color:var(--muted)">出力段の配線の読み取り、B+ 電圧、球の型番を見直すと解消する場合があります（「回路の読み取り」タブ参照）。</span>` : '';
+  }
+  function drawReadouts(wf) {
+    const { resp, dev, ph1k } = last, inb = dev.filter((_, i) => FREQS[i] >= 20 && FREQS[i] <= 20000);
+    const maxdev = inb.reduce((a, b) => Math.abs(b) > Math.abs(a) ? b : a, 0);
+    const items = [
+      ['総合ゲイン @1kHz', at(resp, 1000).toFixed(1), 'dB'],
+      ['フォノEQ ゲイン @1kHz', ph1k.toFixed(1), 'dB'],
+      ['RIAA 最大偏差 20Hz–20kHz', (maxdev > 0 ? '+' : '') + maxdev.toFixed(2), 'dB'],
+      ['THD（波形タブの条件）', wf ? (wf.thd * 100).toFixed(wf.thd < .01 ? 3 : 2) : '—', wf ? '%' : ''],
+    ];
+    $('readouts').innerHTML = items.map(([k, v, u]) => `<div class="ro"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span></div>`).join('');
+  }
+
+  // ---------- waveform ----------
+  let wfTimer = null, lastWf = null;
+  function scheduleWave() { clearTimeout(wfTimer); $('wf-status').textContent = '計算中…'; wfTimer = setTimeout(computeWave, 60); }
+  function computeWave() {
+    const t0 = performance.now(), amp = lvl() * Math.SQRT2, f = S.wfF, spp = 200, nper = 4;
+    const ckt = Engine.build(params(S.mode)), op = Engine.dc(ckt);
+    const r = Engine.tran(ckt, op, { freq: f, amp, periods: 8, spp, probes: [S.wfP] });
+    const w = r.waves[S.wfP], h = Engine.harmonics(w, spp, nper);
+    const N = spp * 2, seg = Array.from(w.slice(w.length - N)), inn = Array.from(r.inW.slice(r.inW.length - N));
+    const mean = seg.reduce((a, b) => a + b, 0) / N;
+    // phase-aligned linear reference from the fundamental
+    let re = 0, im = 0; const s4 = w.slice(w.length - spp * nper);
+    for (let i = 0; i < s4.length; i++) { const p = 2 * Math.PI * i / spp; re += (s4[i] - h.mean) * Math.cos(p); im += (s4[i] - h.mean) * Math.sin(p); }
+    const A = 2 * Math.hypot(re, im) / s4.length, phi = Math.atan2(re, im);
+    const off = (spp * nper - N);
+    const ref = seg.map((_, i) => A * Math.sin(2 * Math.PI * (i + off) / spp + phi));
+    const ac = seg.map(x => x - mean), pk = Math.max(...ac.map(Math.abs), ...ref.map(Math.abs)) * 1.12 || 1;
+    const tms = i => i * r.h * 1000;
+    const nice = x => { const p = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 5, 10].map(k => k * p).find(k => k >= x); };
+    const step = nice(pk / 2), yt = []; for (let y = -Math.floor(pk / step) * step; y <= pk + 1e-12; y += step) yt.push(+y.toPrecision(6));
+    const tmax = tms(N - 1), ts = nice(tmax / 4), xt = []; for (let x = 0; x <= tmax + 1e-9; x += ts) xt.push(+x.toPrecision(6));
+    const vf = y => y === 0 ? '0' : Math.abs(y) < 1 ? (y * 1000).toFixed(0) + 'm' : y.toFixed(y % 1 ? 1 : 0);
+    plot($('c-wave'), { xmin: 0, xmax: tmax, ymin: -pk, ymax: pk, xticks: xt, yticks: yt, zero: true, xfmt: x => x + 'ms', yfmt: vf, ylabel: 'V',
+      series: [{ data: ref.map((y, i) => [tms(i), y]), color: css('--trace2'), width: 1.6, dash: [5, 4] }, { data: ac.map((y, i) => [tms(i), y]), color: css('--accent'), width: 2.4 }] });
+    const hd = h.amps.slice(1).map((a, i) => [i + 2, Math.max(-120, 20 * Math.log10(a / h.amps[0] + 1e-12))]);
+    plot($('c-harm'), { xmin: 1.4, xmax: 10.6, ymin: -120, ymax: 0, xticks: [2, 3, 4, 5, 6, 7, 8, 9, 10], yticks: [-120, -100, -80, -60, -40, -20, 0], xfmt: x => x + '次', yfmt: y => y + '', ylabel: 'dB',
+      series: [{ bars: true, data: hd, color: css('--accent') }] });
+    const vrms = h.amps[0] / Math.SQRT2, gain = 20 * Math.log10(h.amps[0] / amp);
+    const names = { ph_out: 'フォノEQ出力', tin: 'トーン入力', p4: 'V3プレート', outA: '出力端子' };
+    $('wf-status').textContent = `${names[S.wfP]}：${fmtV(vrms)} rms ／ 入力からのゲイン ${gain.toFixed(1)} dB ／ THD ${(h.thd * 100).toFixed(h.thd < .01 ? 3 : 2)}%（2次 ${hd[0][1].toFixed(0)}dB・3次 ${hd[1][1].toFixed(0)}dB）／ 計算 ${Math.round(performance.now() - t0)} ms`;
+    lastWf = h; drawReadouts(h);
+  }
+
+  // ---------- wiring ----------
+  const show = () => {
+    $('o-bass').textContent = (S.bass * 10).toFixed(1); $('o-treble').textContent = (S.treble * 10).toFixed(1); $('o-vol').textContent = (S.vol * 10).toFixed(1);
+    $('o-bplus').textContent = S.bplus + ' V'; $('o-wfl').textContent = fmtV(lvl()) + ' rms';
+  };
+  let raf = 0; const refresh = () => { show(); cancelAnimationFrame(raf); raf = requestAnimationFrame(computeAC); };
+  const waveVisible = () => !$('p-wave').hidden;
+  const onChange = () => { if (waveVisible()) scheduleWave(); else lastWf = null, drawReadouts(null); if (window.__AU) { window.__AU.showRef(); window.__AU.rebuild(); } };
+  for (const [id, key, sc] of [['bass', 'bass', 10], ['treble', 'treble', 10], ['vol', 'vol', 10], ['bplus', 'bplus', 1]]) {
+    $(id).addEventListener('input', e => { S[key] = +e.target.value / sc; refresh(); });
+    $(id).addEventListener('change', onChange);
+  }
+  for (const [id, key] of [['t-ph', 'tph'], ['t-mid', 'tmid'], ['t-out', 'tout']]) $(id).addEventListener('change', e => { S[key] = e.target.value; refresh(); onChange(); });
+  const setMode = m => { S.mode = m; $('m-phono').setAttribute('aria-pressed', m === 'phono'); $('m-line').setAttribute('aria-pressed', m === 'line'); if (m === 'line' && S.wfP === 'ph_out') { S.wfP = 'outA'; $('wf-p').value = 'outA'; } refresh(); onChange(); };
+  $('m-phono').onclick = () => setMode('phono'); $('m-line').onclick = () => setMode('line');
+  $('wf-f').addEventListener('change', e => { S.wfF = +e.target.value; scheduleWave(); });
+  $('wf-p').addEventListener('change', e => { S.wfP = e.target.value; scheduleWave(); });
+  $('wf-l').addEventListener('input', e => { S.wfL = +e.target.value; show(); });
+  $('wf-l').addEventListener('change', scheduleWave);
+
+  const tabs = ['freq', 'wave', 'listen', 'op', 'notes'];
+  tabs.forEach(t => $('tab-' + t).addEventListener('click', () => {
+    tabs.forEach(u => { $('tab-' + u).setAttribute('aria-selected', u === t); $('p-' + u).hidden = u !== t; });
+    if (t === 'freq') drawFreq();
+    if (t === 'wave') scheduleWave();
+  }));
+
+  const redraw = () => { if (!last.op) return; if (!$('p-freq').hidden) drawFreq(); if (waveVisible() && lastWf) computeWave(); };
+  let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(redraw, 120); }).observe(document.querySelector('.bench'));
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+
+  // ---------- listening (Web Audio) ----------
+  const AU = (() => {
+    const HR = 2, VFS = 2.83, N = 16384; // shaper headroom, 0 dBFS out = 2 V rms, IR length
+    let ctx, buf = null, src = null, conv, pre, shaper, post, gA, gB, mon, an, startAt = 0, offset = 0, playing = false, raf = 0, abAmp = true, timer = null, outScale = 1;
+    S.auRef = 500; S.auMon = 50;
+    const refV = () => { const t = S.auRef / 1000; return S.mode === 'phono' ? 1e-3 * Math.pow(30, t) : 0.1 * Math.pow(50, t); }; // rms: phono 1–30 mV, line 0.1–5 V
+    function ensure() {
+      if (ctx) return;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      conv = ctx.createConvolver(); conv.normalize = false;
+      pre = ctx.createGain(); pre.gain.value = 1 / HR;
+      shaper = ctx.createWaveShaper(); shaper.oversample = '4x';
+      post = ctx.createGain(); gA = ctx.createGain(); gB = ctx.createGain(); gB.gain.value = 0;
+      mon = ctx.createGain(); an = ctx.createAnalyser(); an.fftSize = 2048;
+      conv.connect(pre); pre.connect(shaper); shaper.connect(post); post.connect(gA); gA.connect(mon); gB.connect(mon); mon.connect(an); an.connect(ctx.destination);
+      setMon();
+    }
+    // radix-2 inverse FFT (in place)
+    function ifft(re, im) {
+      const n = re.length;
+      for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+      for (let len = 2; len <= n; len <<= 1) {
+        const a = 2 * Math.PI / len, wr = Math.cos(a), wi = Math.sin(a);
+        for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+          for (let k = 0; k < len / 2; k++) { const u = i + k, v = u + len / 2, tr = re[v] * cr - im[v] * ci, ti = re[v] * ci + im[v] * cr;
+            re[v] = re[u] - tr; im[v] = im[u] - ti; re[u] += tr; im[u] += ti; const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+      }
+      for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+    }
+    const cm = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+    const cd = (a, b) => { const q = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / q, (a[1] * b[0] - a[0] * b[1]) / q]; };
+    const rec = f => { const w = 2 * Math.PI * f; return cd(cm([1, w * 3180e-6], [1, w * 75e-6]), [1, w * 318e-6]); };
+    const REC1K = Math.hypot(...rec(1000));
+
+    function model(fs) {
+      const ckt = Engine.build(params(S.mode)), op = Engine.dc(ckt);
+      const nF = 200, F = Array.from({ length: nF }, (_, i) => 2 * Math.pow(fs / 4, i / (nF - 1))); F.push(1000);
+      const raw = Engine.ac(ckt, op, F, ['outA']).outA;
+      const H = raw.map((c, i) => S.mode === 'phono' ? cm(c, rec(F[i]).map(x => x / REC1K)) : c);
+      const G = Math.hypot(...H.pop()); F.pop();
+      // magnitude (log) + unwrapped phase, interpolated on log-f
+      const lm = H.map(c => Math.log(Math.hypot(c[0], c[1]) / G + 1e-12)), ph = []; let acc = 0, prev = 0;
+      H.forEach((c, i) => { const a = Math.atan2(c[1], c[0]); if (i) { let d = a - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; acc += d; } else acc = a; prev = a; ph.push(acc); });
+      const lf = F.map(Math.log), re = new Float64Array(N), im = new Float64Array(N);
+      let j = 0;
+      for (let k = 1; k <= N / 2; k++) {
+        const x = Math.log(k * fs / N); while (j < nF - 2 && lf[j + 1] < x) j++;
+        let t = (x - lf[j]) / (lf[j + 1] - lf[j]); t = Math.max(0, Math.min(1, t));
+        const m = Math.exp(lm[j] + t * (lm[j + 1] - lm[j])), p = ph[j] + t * (ph[j + 1] - ph[j]);
+        re[k] = m * Math.cos(p); im[k] = m * Math.sin(p);
+        if (k < N / 2) { re[N - k] = re[k]; im[N - k] = -im[k]; }
+      }
+      im[N / 2] = 0; ifft(re, im);
+      const ir = new Float32Array(N), fade = N / 4;
+      for (let i = 0; i < N; i++) ir[i] = re[i] * (i > N - fade ? 0.5 * (1 + Math.cos(Math.PI * (i - (N - fade)) / fade)) : 1);
+      // nonlinear transfer curve from a 1 kHz transient at HR × full scale
+      const Vpk = refV() * Math.SQRT2, spp = 256;
+      const tr = Engine.tran(ckt, op, { freq: 1000, amp: HR * Vpk, periods: 6, spp, probes: ['outA'] });
+      const w = tr.waves.outA, seg = w.slice(w.length - 2 * spp);
+      let mean = 0; for (const x of seg) mean += x; mean /= seg.length;
+      let cre = 0, cim = 0; seg.forEach((x, i) => { const a = 2 * Math.PI * i / spp; cre += (x - mean) * Math.cos(a); cim += (x - mean) * Math.sin(a); });
+      const phi = Math.atan2(cre, cim), a1 = 2 * Math.hypot(cre, cim) / seg.length;
+      const at = th => { let pos = ((th - phi) / (2 * Math.PI)) * spp; pos = ((pos % spp) + spp) % spp; const i0 = Math.floor(pos), f = pos - i0; return (seg[i0] * (1 - f) + seg[(i0 + 1) % spp] * f) - mean; };
+      const nC = 2049, curve = new Float32Array(nC);
+      for (let i = 0; i < nC; i++) { const s = -1 + 2 * i / (nC - 1), th = Math.asin(s); curve[i] = ((at(th) + at(Math.PI - th)) / 2) / (G * Vpk); }
+      const h = Engine.harmonics(w, spp, 4);
+      return { ir, curve, G, Vpk, comp: a1 / (G * HR * Vpk), thd: h.thd };
+    }
+
+    function rebuild() {
+      if (!ctx) return;
+      $('au-status').textContent = 'アンプの特性を計算中…';
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const t0 = performance.now(), m = model(ctx.sampleRate);
+        const b = ctx.createBuffer(1, N, ctx.sampleRate); b.copyToChannel(m.ir, 0); conv.buffer = b;
+        shaper.curve = m.curve;
+        outScale = m.G * m.Vpk / VFS;
+        post.gain.setTargetAtTime(outScale, ctx.currentTime, 0.02);
+        gB.gain.setTargetAtTime(abAmp ? 0 : outScale, ctx.currentTime, 0.02);
+        const vout = m.G * refV();
+        $('au-status').textContent = `0dBFS（1kHz）で 入力 ${fmtV(refV())} → 出力 ${fmtV(vout)} rms ／ その 2 倍の振幅での THD ${(m.thd * 100).toFixed(2)}%・圧縮 ${(20 * Math.log10(m.comp)).toFixed(1)} dB ／ 計算 ${Math.round(performance.now() - t0)} ms`;
+      }, 250);
+    }
+    function setMon() { if (mon) mon.gain.setTargetAtTime(Math.pow(S.auMon / 100, 2), ctx.currentTime, 0.02); $('o-aumon').textContent = S.auMon + '%'; }
+    const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const pos = () => playing ? Math.min(buf.duration, ctx.currentTime - startAt) : offset;
+    function tick() {
+      if (!buf) return;
+      const p = pos(); $('au-time').textContent = `${fmtT(p)} / ${fmtT(buf.duration)}`; if (!seeking) $('au-seek').value = Math.round(p / buf.duration * 1000);
+      const d = new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); let pk = 0; for (const x of d) pk = Math.max(pk, Math.abs(x));
+      const dbv = 20 * Math.log10(pk + 1e-9), bar = $('au-meter');
+      bar.style.width = Math.max(0, Math.min(100, (dbv + 60) / 60 * 100)) + '%';
+      bar.className = 'bar' + (pk >= 0.999 ? ' clip' : pk > 0.5 ? ' hot' : '');
+      if (playing) $('au-peak').textContent = `ピーク ${dbv.toFixed(1)} dBFS` + (pk >= 0.999 ? '　音割れ：モニター音量を下げてください' : '');
+      raf = requestAnimationFrame(tick);
+    }
+    function play() {
+      ensure(); ctx.resume();
+      src = ctx.createBufferSource(); src.buffer = buf; src.connect(conv); src.connect(gB);
+      src.onended = () => { if (playing && pos() >= buf.duration - 0.05) { playing = false; offset = 0; $('au-play').textContent = '▶ 再生'; } };
+      src.start(0, offset); startAt = ctx.currentTime - offset; playing = true; $('au-play').textContent = '❚❚ 一時停止';
+      cancelAnimationFrame(raf); tick();
+    }
+    function stop() { if (src) { src.onended = null; try { src.stop(); } catch (e) {} src.disconnect(); src = null; } }
+    function pause() { offset = pos(); stop(); playing = false; $('au-play').textContent = '▶ 再生'; }
+    let seeking = false;
+    async function load(file) {
+      ensure();
+      $('au-name').textContent = `${file.name} を読み込み中…`;
+      try {
+        const data = await file.arrayBuffer();
+        const b = await ctx.decodeAudioData(data);
+        if (playing) pause(); buf = b; offset = 0;
+        $('au-name').textContent = `${file.name}（${fmtT(b.duration)}・${b.numberOfChannels}ch・${b.sampleRate / 1000}kHz）`;
+        $('au-play').disabled = false; $('au-seek').disabled = false; rebuild(); tick();
+      } catch (e) { $('au-name').textContent = `${file.name} は読み込めませんでした。WAV か MP3 で試してください。`; }
+    }
+    function setAB(amp) {
+      abAmp = amp; $('ab-amp').setAttribute('aria-pressed', amp); $('ab-raw').setAttribute('aria-pressed', !amp);
+      if (ctx) { gA.gain.setTargetAtTime(amp ? 1 : 0, ctx.currentTime, 0.02); gB.gain.setTargetAtTime(amp ? 0 : outScale, ctx.currentTime, 0.02); }
+    }
+    function showRef() {
+      $('o-auref').textContent = fmtV(refV()) + ' rms';
+      $('au-ref-hint').textContent = S.mode === 'phono' ? 'MM カートリッジの出力の目安は 1kHz で 3〜5mV（5cm/s）。' : 'CD プレーヤーのライン出力は最大 2V rms が標準です。';
+    }
+    // wiring
+    $('au-pick').onclick = () => $('au-file').click();
+    $('au-file').addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
+    const dz = $('au-drop');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) load(f); });
+    $('au-play').onclick = () => (playing ? pause() : play());
+    $('au-seek').addEventListener('input', () => { seeking = true; if (buf) $('au-time').textContent = `${fmtT($('au-seek').value / 1000 * buf.duration)} / ${fmtT(buf.duration)}`; });
+    $('au-seek').addEventListener('change', () => { seeking = false; const was = playing; if (was) { stop(); playing = false; } offset = $('au-seek').value / 1000 * buf.duration; if (was) play(); });
+    $('ab-amp').onclick = () => setAB(true); $('ab-raw').onclick = () => setAB(false);
+    $('au-ref').addEventListener('input', e => { S.auRef = +e.target.value; showRef(); });
+    $('au-ref').addEventListener('change', rebuild);
+    $('au-mon').addEventListener('input', e => { S.auMon = +e.target.value; if (ctx) setMon(); else $('o-aumon').textContent = S.auMon + '%'; });
+    showRef(); $('o-aumon').textContent = S.auMon + '%';
+    return { rebuild, showRef, _model: model };
+  })();
+  window.__AU = AU;
+
+  show(); computeAC();
+})();
+</script>
+
+</body>
+</html>
